@@ -21,7 +21,7 @@ from Action import Action
 
 class ManualAI( AI ):
 
-	def getAction(self, number: int) -> "Action Object":
+	def getAction(self, number: int):
 		""" Prompt user for type of action, and the coordinates of where to perform that action """
 		""" Return an Action object storing that information """
 	
