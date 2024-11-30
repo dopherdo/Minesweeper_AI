@@ -13,7 +13,9 @@ class MyAI(AI):
         self.visited = set()  #their pos      
         self.flaggedMines = set() #flagged mines
         self.safeQueue = deque() #0 mines adjacent
-
+        
+        self.hasCoveredAdjacents = set()
+        
         self.matrix = self.initializeBoard()  
         self.lastAction = "uncover" #because of first move
 
@@ -42,10 +44,20 @@ class MyAI(AI):
         #print(f"Safe Queue: {self.safeQueue}")
         #print(f"Flagged: {self.flaggedMines}")
         
+        
+        
         for tile in self.visited: #updates gameboard accurately (from TAS)
             numHidden = len(self.getHidden(tile[0], tile[1]))
             numFlags = len(self.adjacentFlags(tile[0],tile[1]))
             currentTileNum = self.getTileNumber(tile[0], tile[1])
+            
+            #address hasCoveredAdjacents
+            if numHidden == 0 and tile in self.hasCoveredAdjacents:
+                self.hasCoveredAdjacents.remove(tile)
+                
+            if numHidden > 0 and tile not in self.hasCoveredAdjacents:
+                self.hasCoveredAdjacents.add(tile)
+            
             if (numHidden + numFlags) == currentTileNum: #should be at that tile
                 for unsafe in self.getHidden(tile[0],tile[1]):
                     self.matrix[self.numRows - unsafe[1] - 1][unsafe[0]] = '?'
@@ -84,22 +96,146 @@ class MyAI(AI):
             self.lastAction = "uncover"
             return Action(AI.Action.UNCOVER, nextTile[0], nextTile[1])
         
+        pattern_action = self.patternCheck()
+        if pattern_action:
+            return pattern_action
+            
+        # Random algorithm
         unvisited_tiles = [
-        (x, y) for x in range(self.numCols)
-        for y in range(self.numRows)
-        if (x, y) not in self.visited and (x, y) not in self.flaggedMines]
-
+            (x, y) for x in range(self.numCols)
+            for y in range(self.numRows)
+            if (x, y) not in self.visited and (x, y) not in self.flaggedMines
+        ]
+        
         if unvisited_tiles:
             random_tile = random.choice(unvisited_tiles)
             self.theirPos = random_tile
             #print(f"Case 3: No safe moves; picking random tile: {self.theirPos}")
 
             self.lastAction = "uncover"
+            print(f"RANDOM CHOICE: {random_tile[0]}, {random_tile[1]}")
             return Action(AI.Action.UNCOVER, random_tile[0], random_tile[1])
 
-        #print("No valid moves remaining. Leaving game.")
+        
+        
+    
         return Action(AI.Action.LEAVE)
 
+    def patternCheck(self):
+        '''
+        Checks for patterns and performs the corresponding action
+        Return: None
+        '''
+        return self.oneOne()
+        # self.oneTwo()
+        pass
+    
+    def oneOne(self):
+        '''
+        Checks for 1-1 pattern
+        WILL ADD: 1-1+ pattern
+        '''
+        # 1-1 Pattern: Precise Definitive Mine Location
+        for (x1, y1) in self.hasCoveredAdjacents:
+            # Ensure first position is a 1
+            if self.getTileNumber(x1, y1) - len(self.adjacentFlags(x1, y1)) != 1:
+                continue
+            
+            print(f"first coord ({x1}, {y1}) is a 1? {self.getTileNumber(x1, y1) - len(self.adjacentFlags(x1, y1))}")
+            
+            # Get hidden neighbors for first position
+            hidden1 = set(self.getHidden(x1, y1))
+            
+            # Wall check for hidden1
+            if len(hidden1) != 2:
+                continue
+            
+            # Only check adjacent 1's
+            for (x2, y2) in [(x1-1, y1), (x1+1, y1), (x1, y1-1), (x1, y1+1)]:
+                
+                print(f"Checking if ({x2}, {y2}) is in {self.hasCoveredAdjacents}")
+                # Skip if this adjacent position is not in hasCoveredAdjacents
+                if (x2, y2) not in self.hasCoveredAdjacents:
+                    continue
+                
+                # Ensure adjacent position is also a 1
+                print(f"second coord ({x2}, {y2}) is a 1? {self.getTileNumber(x2, y2) - len(self.adjacentFlags(x2, y2))}")
+                if self.getTileNumber(x2, y2) - len(self.adjacentFlags(x2, y2)) != 1:
+                    continue
+                
+                # Get hidden neighbors for second position
+                hidden2 = set(self.getHidden(x2, y2))
+                
+                # Shared hidden tiles between the two 1 positions
+                shared_hidden = hidden1.intersection(hidden2)
+                
+                # Check if the share is exactly two tiles
+                if len(shared_hidden) == 2:
+                    # Crucial check: Ensure no other possibility exists for mines
+                    # This means checking ALL tiles around both 1-positions
+                    all_hidden_context = set()
+                    for (check_x, check_y) in [(x1, y1), (x2, y2)]:
+                        # Get ALL hidden around this position
+                        all_around = set(self.getHidden(check_x, check_y))
+                        all_hidden_context.update(all_around)
+                    
+                    # If shared_hidden is the ONLY possible mine location
+                    if shared_hidden == all_hidden_context.intersection(shared_hidden):
+                        # Unique tiles not in the shared area
+                        unique1 = hidden1 - shared_hidden
+                        unique2 = hidden2 - shared_hidden
+                        
+                        # Safe tile is the unique tile
+                        if unique1 or unique2:
+                            safe_tile = unique1.pop() if unique1 else unique2.pop()
+                            self.theirPos = safe_tile
+                            self.lastAction = "uncover"
+                            print(f"ONE-ONE HAS BEEN DONE: Uncovering {safe_tile[0]}, {safe_tile[1]}")
+                            return Action(AI.Action.UNCOVER, safe_tile[0], safe_tile[1])
+        return None
+
+    
+    def oneTwo(self):
+        '''
+        Checks for 1-2 pattern
+        WILL ADD: 1-2+, 1-2C, 1-2C+ Patterns
+        '''
+        # 1-2 Pattern: Precise Adjacent Tile Inference
+        for tile in self.hasCoveredAdjacents:
+            # Tile with number 1
+            if self.getTileNumber(tile[0], tile[1]) == 1:
+                # Get hidden neighbors for this tile
+                hidden1 = set(self.getHidden(tile[0], tile[1]))
+                
+                # Look for adjacent tiles with number 2
+                for other_tile in self.hasCoveredAdjacents:
+                    if other_tile == tile:
+                        continue
+                    
+                    # Ensure the other tile is a 2
+                    if self.getTileNumber(other_tile[0], other_tile[1]) != 2:
+                        continue
+                    
+                    # Get hidden neighbors for the other tile
+                    hidden2 = set(self.getHidden(other_tile[0], other_tile[1]))
+                    
+                    # Check if the 1 and 2 tiles share exactly two hidden neighbors
+                    shared_hidden = hidden1.intersection(hidden2)
+                    
+                    if len(shared_hidden) == 2:
+                        # These shared hidden tiles contain one mine
+                        # The remaining unique tile of the 2 must be a mine
+                        unique2 = hidden2 - shared_hidden
+                        
+                        if unique2:
+                            mine_tile = unique2.pop()
+                            self.theirPos = mine_tile
+                            self.flaggedMines.add(mine_tile)
+                            self.lastAction = "flag"
+                            return Action(AI.Action.FLAG, mine_tile[0], mine_tile[1])
+
+        
+    
     def getHidden(self, x_coord, y_coord): #returns a list of unvisited adjacent tiles
         adjacentTiles = []
         for x in range(-1, 2):  # -1, 0, 1
@@ -107,7 +243,7 @@ class MyAI(AI):
                 if x == 0 and y == 0:
                     continue
                 adj_x, adj_y = x_coord + x, y_coord + y
-                if (0 <= adj_x < self.numRows and 0 <= adj_y < self.numCols 
+                if (0 <= self.numRows - adj_y - 1 < self.numRows and 0 <= adj_x < self.numCols 
                     and self.matrix[self.numRows - adj_y - 1][adj_x] == -2 and (adj_x, adj_y) not in self.visited and (adj_x, adj_y) not in self.flaggedMines): #for my matrix must use diff system
                     adjacentTiles.append((adj_x, adj_y))
         return adjacentTiles
