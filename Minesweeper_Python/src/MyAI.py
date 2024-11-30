@@ -98,6 +98,7 @@ class MyAI(AI):
         
         pattern_action = self.patternCheck()
         if pattern_action:
+            print(f"ONE-ONE HAS BEEN DONE")
             return pattern_action
             
         # Random algorithm
@@ -126,9 +127,14 @@ class MyAI(AI):
         Checks for patterns and performs the corresponding action
         Return: None
         '''
-        return self.oneOne()
-        # self.oneTwo()
-        pass
+        oneOne =  self.oneOne()
+        if oneOne:
+            return oneOne
+        oneTwo =  self.oneTwo()
+        if oneTwo:
+            return oneTwo
+        
+        return None
     
     def oneOne(self):
         '''
@@ -140,9 +146,7 @@ class MyAI(AI):
             # Ensure first position is a 1
             if self.getTileNumber(x1, y1) - len(self.adjacentFlags(x1, y1)) != 1:
                 continue
-            
-            print(f"first coord ({x1}, {y1}) is a 1? {self.getTileNumber(x1, y1) - len(self.adjacentFlags(x1, y1))}")
-            
+                        
             # Get hidden neighbors for first position
             hidden1 = set(self.getHidden(x1, y1))
             
@@ -153,13 +157,11 @@ class MyAI(AI):
             # Only check adjacent 1's
             for (x2, y2) in [(x1-1, y1), (x1+1, y1), (x1, y1-1), (x1, y1+1)]:
                 
-                print(f"Checking if ({x2}, {y2}) is in {self.hasCoveredAdjacents}")
                 # Skip if this adjacent position is not in hasCoveredAdjacents
                 if (x2, y2) not in self.hasCoveredAdjacents:
                     continue
                 
                 # Ensure adjacent position is also a 1
-                print(f"second coord ({x2}, {y2}) is a 1? {self.getTileNumber(x2, y2) - len(self.adjacentFlags(x2, y2))}")
                 if self.getTileNumber(x2, y2) - len(self.adjacentFlags(x2, y2)) != 1:
                     continue
                 
@@ -190,7 +192,6 @@ class MyAI(AI):
                             safe_tile = unique1.pop() if unique1 else unique2.pop()
                             self.theirPos = safe_tile
                             self.lastAction = "uncover"
-                            print(f"ONE-ONE HAS BEEN DONE: Uncovering {safe_tile[0]}, {safe_tile[1]}")
                             return Action(AI.Action.UNCOVER, safe_tile[0], safe_tile[1])
         return None
 
