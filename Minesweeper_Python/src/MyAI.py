@@ -98,7 +98,7 @@ class MyAI(AI):
         
         pattern_action = self.patternCheck()
         if pattern_action:
-            print(f"ONE-ONE HAS BEEN DONE")
+            # print(f"ONE-ONE HAS BEEN DONE")
             return pattern_action
             
         # Random algorithm
@@ -114,7 +114,7 @@ class MyAI(AI):
             #print(f"Case 3: No safe moves; picking random tile: {self.theirPos}")
 
             self.lastAction = "uncover"
-            print(f"RANDOM CHOICE: {random_tile[0]}, {random_tile[1]}")
+            # print(f"RANDOM CHOICE: {random_tile[0]}, {random_tile[1]}")
             return Action(AI.Action.UNCOVER, random_tile[0], random_tile[1])
 
         
@@ -197,43 +197,52 @@ class MyAI(AI):
 
     
     def oneTwo(self):
-        '''
-        Checks for 1-2 pattern
-        WILL ADD: 1-2+, 1-2C, 1-2C+ Patterns
-        '''
-        # 1-2 Pattern: Precise Adjacent Tile Inference
-        for tile in self.hasCoveredAdjacents:
-            # Tile with number 1
-            if self.getTileNumber(tile[0], tile[1]) == 1:
-                # Get hidden neighbors for this tile
-                hidden1 = set(self.getHidden(tile[0], tile[1]))
-                
-                # Look for adjacent tiles with number 2
-                for other_tile in self.hasCoveredAdjacents:
-                    if other_tile == tile:
-                        continue
+        for (x1, y1) in self.hasCoveredAdjacents:
+            # Ensure the first tile is a "1" (after accounting for flags)
+            # print(f"Adjacent flags: {self.adjacentFlags(x1, y1)}")
+            if self.getTileNumber(x1, y1) - len(self.adjacentFlags(x1, y1)) != 1:
+                continue
+
+            # Get hidden neighbors for the "1" tile
+            hidden1 = set(self.getHidden(x1, y1))
+
+            # Ensure the "1" has exactly 2 hidden neighbors
+            if len(hidden1) != 2:
+                continue
+
+            # Look for neighboring "2" tiles
+            for (x2, y2) in [(x1-1, y1), (x1+1, y1), (x1, y1-1), (x1, y1+1)]:
+                # Skip if this neighbor is not in hasCoveredAdjacents
+                if (x2, y2) not in self.hasCoveredAdjacents:
+                    continue
+
+                # Ensure the second tile is a "2" (after accounting for flags)
+                # print(f"Adjacent flags 2: {self.adjacentFlags(x2, y2)}")
+
+                # print(f"Flagged Mines: {self.flaggedMines}")
+                if self.getTileNumber(x2, y2) - len(self.adjacentFlags(x2, y2)) != 2:
+                    continue
+
+                # Get hidden neighbors for the "2" tile
+                hidden2 = set(self.getHidden(x2, y2))
+
+                # Find shared and unique tiles
+                shared_hidden = hidden1.intersection(hidden2)
+                unique_hidden = hidden2 - shared_hidden
+
+                # Ensure shared tiles are exactly 2 and there's 1 unique tile for the "2"
+                if len(shared_hidden) == 2 and len(unique_hidden) == 1:
+                    # Flag the unique tile as a mine
+                    mine_tile = unique_hidden.pop()
+                    self.theirPos = mine_tile
+                    self.lastAction = "flag"
+                    # print(f"ONE-TWO PATTERN: Flagging {mine_tile[0]}, {mine_tile[1]}")
+                    self.matrix[self.numRows - mine_tile[1] - 1][mine_tile[0]] = '?'
+                    self.flaggedMines.add(mine_tile)
+                    return Action(AI.Action.FLAG, mine_tile[0], mine_tile[1])
+
                     
-                    # Ensure the other tile is a 2
-                    if self.getTileNumber(other_tile[0], other_tile[1]) != 2:
-                        continue
-                    
-                    # Get hidden neighbors for the other tile
-                    hidden2 = set(self.getHidden(other_tile[0], other_tile[1]))
-                    
-                    # Check if the 1 and 2 tiles share exactly two hidden neighbors
-                    shared_hidden = hidden1.intersection(hidden2)
-                    
-                    if len(shared_hidden) == 2:
-                        # These shared hidden tiles contain one mine
-                        # The remaining unique tile of the 2 must be a mine
-                        unique2 = hidden2 - shared_hidden
-                        
-                        if unique2:
-                            mine_tile = unique2.pop()
-                            self.theirPos = mine_tile
-                            self.flaggedMines.add(mine_tile)
-                            self.lastAction = "flag"
-                            return Action(AI.Action.FLAG, mine_tile[0], mine_tile[1])
+        return None
 
         
     
