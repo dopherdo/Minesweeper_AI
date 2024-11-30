@@ -173,7 +173,6 @@ class MyAI(AI):
                 
                 # Check if the share is exactly two tiles
                 if len(shared_hidden) == 2:
-                    # Crucial check: Ensure no other possibility exists for mines
                     # This means checking ALL tiles around both 1-positions
                     all_hidden_context = set()
                     for (check_x, check_y) in [(x1, y1), (x2, y2)]:
